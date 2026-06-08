@@ -23,9 +23,9 @@ pub fn camera_list() -> &'static [*const std::os::raw::c_char] {
 
 pub fn capabilities() -> u32 { unsafe { sys::libraw_capabilities() } }
 
-pub fn strprogress(stage: u32) -> &'static str {
+pub fn strprogress(stage: sys::LibRaw_progress) -> &'static str {
     unsafe {
-        let ptr = sys::libraw_strprogress(std::mem::transmute(stage as i32));
+        let ptr = sys::libraw_strprogress(stage);
         if ptr.is_null() { return "unknown"; }
         CStr::from_ptr(ptr).to_str().unwrap_or("unknown")
     }
@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     fn test_version_number() {
-        assert_eq!(version_number(), (0 << 16) | (22 << 8) | 1);
+        assert_eq!(version_number(), (22 << 8) | 1);
     }
 
     #[test]

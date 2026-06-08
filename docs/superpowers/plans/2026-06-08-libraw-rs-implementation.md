@@ -4,119 +4,48 @@
 
 **Goal:** Build idiomatic Rust bindings for LibRaw v0.22.1 covering the full C API with a high-level facade and expert-level access.
 
-**Architecture:** Single crate `libraw-rs`. `build.rs` uses cmake+bindgen to build LibRaw from vendor source and generate FFI bindings. Safe Rust modules (`context`, `error`, `params`, `metadata`, `process`, `image`, `stream`, `callbacks`, `high_level`) wrap the generated `sys` module, providing RAII lifecycle management, `Result`-based error handling, builder-pattern params, lifetime-bound metadata accessors, and a convenience facade.
+**Architecture:** Single crate `libraw-rs`. `build.rs` uses bindgen to generate FFI bindings from LibRaw headers and links against a pre-built static library (`libraw.lib`/`libraw.a`). Safe Rust modules (`context`, `error`, `params`, `metadata`, `process`, `image`, `stream`, `callbacks`, `high_level`) wrap the generated `sys` module, providing RAII lifecycle management, `Result`-based error handling, builder-pattern params, lifetime-bound metadata accessors, and a convenience facade.
 
-**Tech Stack:** Rust 2024 edition, bindgen 0.70+, cmake 0.1, cc 1.0, libc 0.2, thiserror 1.0
+**Tech Stack:** Rust 2024 edition, bindgen 0.71, libc 0.2, thiserror 1.0, pre-built LibRaw static library
 
 ---
 
-### Task 1: Build system — cmake + bindgen + Cargo features
+### Task 1: Build system — pre-built static lib + bindgen
 
 **Files:**
 - Modify: `build.rs`
 - Modify: `Cargo.toml`
 
-- [ ] **Step 1: Add build.rs with cmake and basic bindgen setup**
+- [ ] **Step 1: Write build.rs — link pre-built lib + generate bindings**
 
-Replace the empty `build.rs`:
+Pre-built static libraries are at:
+- `static_lib/win/libraw_static.lib` (Windows MSVC)
+- `static_lib/mac/libraw_r.a` (macOS with RawSpeed)
 
 ```rust
 use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    // Step 1: Build LibRaw via CMake
-    let mut cmake = cmake::Config::new("vendor/LibRaw");
-
-    // Static library
-    cmake.define("BUILD_SHARED_LIBS", "OFF");
-
-    // Disable examples and tools
-    cmake.define("ENABLE_EXAMPLES", "OFF");
-    cmake.define("ENABLE_TOOLS", "OFF");
-
-    // LCMS support
-    if cfg!(feature = "lcms") {
-        cmake.define("ENABLE_LCMS", "ON");
-    } else {
-        cmake.define("ENABLE_LCMS", "OFF");
-    }
-
-    // RawSpeed support
-    if cfg!(feature = "rawspeed") {
-        cmake.define("ENABLE_RAWSPEED", "ON");
-    } else {
-        cmake.define("ENABLE_RAWSPEED", "OFF");
-    }
-
-    // DNG SDK (off by default)
-    if cfg!(feature = "dng-sdk") {
-        cmake.define("ENABLE_DNGSDK", "ON");
-    } else {
-        cmake.define("ENABLE_DNGSDK", "OFF");
-    }
-
-    // OpenMP
-    if cfg!(feature = "openmp") {
-        cmake.define("ENABLE_OPENMP", "ON");
-    } else {
-        cmake.define("ENABLE_OPENMP", "OFF");
-    }
-
-    // JPEG support for thumbnails
-    if cfg!(feature = "jpeg") {
-        cmake.define("USE_JPEG", "ON");
-    } else {
-        cmake.define("USE_JPEG", "OFF");
-    }
-
-    // Jasper (JPEG 2000)
-    if cfg!(feature = "jasper") {
-        cmake.define("USE_JASPER", "ON");
-    } else {
-        cmake.define("USE_JASPER", "OFF");
-    }
-
-    // Demosaic packs
-    if cfg!(feature = "demosaic-packs") {
-        cmake.define("USE_DEMOSAIC_PACK_GPL3", "ON");
-        cmake.define("USE_DEMOSAIC_PACK_GPL2", "ON");
-        cmake.define("USE_DEMOSAIC_PACK_LGPL2", "ON");
-    }
-
-    let dst = cmake
-        .profile("Release")
-        .build();
-
-    // Link LibRaw
-    println!("cargo:rustc-link-search=native={}/lib", dst.display());
-    println!("cargo:rustc-link-lib=static=raw");
-
-    // On Unix, LibRaw may need additional system libraries
-    #[cfg(target_os = "linux")]
-    {
-        println!("cargo:rustc-link-lib=stdc++");
-        println!("cargo:rustc-link-lib=z");
-        if cfg!(feature = "lcms") {
-            println!("cargo:rustc-link-lib=lcms2");
-        }
-        if cfg!(feature = "jpeg") {
-            println!("cargo:rustc-link-lib=jpeg");
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    {
+    // Link pre-built static library
+    if cfg!(target_os = "windows") {
+        println!("cargo:rustc-link-search=native=static_lib/win");
+        println!("cargo:rustc-link-lib=static=libraw_static");
+        println!("cargo:rustc-link-lib=user32");
+        println!("cargo:rustc-link-lib=ws2_32");
+    } else if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-search=native=static_lib/mac");
+        println!("cargo:rustc-link-lib=static=raw_r");
         println!("cargo:rustc-link-lib=c++");
         println!("cargo:rustc-link-lib=z");
+    } else if cfg!(target_os = "linux") {
+        println!("cargo:rustc-link-search=native=static_lib/linux");
+        println!("cargo:rustc-link-lib=static=raw");
+        println!("cargo:rustc-link-lib=stdc++");
+        println!("cargo:rustc-link-lib=z");
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        println!("cargo:rustc-link-lib=user32");
-    }
-
-    // Step 2: Generate bindings via bindgen
+    // Generate bindings from LibRaw headers
     let bindings = bindgen::Builder::default()
         .header("vendor/LibRaw/libraw/libraw.h")
         .clang_arg("-Ivendor/LibRaw")
@@ -134,37 +63,29 @@ fn main() {
         .write_to_file(out_dir.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 
-    // Rerun if vendor headers change
     println!("cargo:rerun-if-changed=vendor/LibRaw/libraw/");
+    println!("cargo:rerun-if-changed=static_lib/");
 }
 ```
 
-- [ ] **Step 2: Update Cargo.toml features to match build.rs**
-
-Add to `Cargo.toml` (keep existing contents, update `[features]`):
+- [ ] **Step 2: Update Cargo.toml — remove cmake/cc, keep bindgen**
 
 ```toml
-[features]
-default = []
-rawspeed = []
-lcms = []
-dng-sdk = []
-demosaic-packs = []
-openmp = []
-jasper = []
-jpeg = []
+[build-dependencies]
+bindgen = "0.71"
+pkg-config = "0.3"
 ```
 
-- [ ] **Step 3: Try a dry-run cargo build to verify CMake and bindgen run**
+- [ ] **Step 3: Test compilation**
 
-Run: `cargo build 2>&1 | head -40`
-Expected: Should see CMake configure/build output, then bindgen output, then a Rust compilation error (modules not written yet). The important thing is that CMake + bindgen complete without error.
+Run: `cargo build`
+Expected: Build script runs bindgen, links against static lib. Rust compilation succeeds with `mod sys;` skeleton.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add build.rs Cargo.toml
-git commit -m "build: add cmake + bindgen build system with feature flags"
+git commit -m "build: add pre-built static lib linking + bindgen generation"
 ```
 
 ---

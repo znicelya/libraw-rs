@@ -15,7 +15,7 @@ unsafe impl Send for ProcessedImage {}
 impl ProcessedImage {
     pub fn image_type(&self) -> ImageType {
         let t = unsafe { (*self.inner).type_ };
-        if t == sys::LibRaw_image_formats_LIBRAW_IMAGE_JPEG as i32 { ImageType::Jpeg }
+        if t == sys::LibRaw_image_formats_LIBRAW_IMAGE_JPEG { ImageType::Jpeg }
         else { ImageType::Bitmap }
     }
 

@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity, clippy::missing_transmute_annotations)]
+
 use crate::sys;
 use crate::LibRaw;
 

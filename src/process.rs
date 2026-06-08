@@ -98,7 +98,7 @@ impl LibRaw {
     // Helper queries using rawdata inspection (since internal fields aren't public)
     pub fn is_jpeg_thumb(&self) -> bool {
         unsafe {
-            (*self.inner).thumbnail.tformat == sys::LibRaw_thumbnail_formats_LIBRAW_THUMBNAIL_JPEG as i32
+            (*self.inner).thumbnail.tformat == sys::LibRaw_thumbnail_formats_LIBRAW_THUMBNAIL_JPEG
         }
     }
 

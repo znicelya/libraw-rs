@@ -48,7 +48,7 @@ impl<'a> ImageOther<'a> {
     pub fn shutter(&self) -> f32 { self.inner.shutter }
     pub fn aperture(&self) -> f32 { self.inner.aperture }
     pub fn focal_len(&self) -> f32 { self.inner.focal_len }
-    pub fn timestamp(&self) -> i64 { self.inner.timestamp as i64 }
+    pub fn timestamp(&self) -> i64 { self.inner.timestamp }
     pub fn shot_order(&self) -> u32 { self.inner.shot_order }
     pub fn desc(&self) -> &str { cstr_to_str(&self.inner.desc) }
     pub fn artist(&self) -> &str { cstr_to_str(&self.inner.artist) }
