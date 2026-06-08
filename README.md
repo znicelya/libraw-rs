@@ -153,6 +153,27 @@ raw.set_progress_handler(|stage, iter, expected| {
 });
 ```
 
+### Extract JPEG Preview / Thumbnail
+
+RAW files often contain an embedded JPEG preview. Use `unpack_thumb()` for fast extraction without processing the full sensor data:
+
+```rust
+let mut raw = LibRaw::open("photo.CR3")?;
+
+// Unpack only the embedded thumbnail (fast)
+raw.unpack_thumb()?;
+
+if raw.is_jpeg_thumb() {
+    let thumb = raw.make_mem_thumb()?;
+    thumb.save("preview.jpg")?;
+    println!("{}×{} — {} bytes", thumb.width(), thumb.height(), thumb.data().len());
+}
+```
+
+```bash
+cargo run --example extract_thumb -- photo.CR3 preview.jpg
+```
+
 ### Convert to TIFF (One-liner)
 
 ```rust
@@ -192,8 +213,9 @@ cargo build
 # Run tests
 cargo test
 
-# Run example
+# Run examples
 cargo run --example simple -- path/to/file.RAW
+cargo run --example extract_thumb -- path/to/file.RAW preview.jpg
 ```
 
 ## License
