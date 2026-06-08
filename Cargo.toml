@@ -1,0 +1,30 @@
+[package]
+name = "libraw-rs"
+version = "0.1.0"
+edition = "2024"
+authors = ["Nicely"]
+description = "Rust bindings for LibRaw - raw image processing library"
+license = "MIT OR Apache-2.0"
+links = "libraw"
+build = "build.rs"
+
+[dependencies]
+libc = "0.2"
+thiserror = "1.0"
+
+[build-dependencies]
+bindgen = "0.71"
+pkg-config = "0.3"
+
+[dev-dependencies]
+tempfile = "3.0"
+
+[features]
+default = []
+rawspeed = []
+lcms = []
+dng-sdk = []
+demosaic-packs = []
+openmp = []
+jasper = []
+jpeg = []
